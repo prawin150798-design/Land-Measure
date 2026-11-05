@@ -6,138 +6,84 @@
   <meta name="theme-color" content="#10251f" />
   <meta name="description" content="Draw a land boundary on a satellite map and calculate its area and perimeter." />
   <title>LandMeasure — Land Area & Perimeter Calculator</title>
-
   <link rel="preconnect" href="https://unpkg.com" />
   <link rel="preconnect" href="https://server.arcgisonline.com" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-
   <style>
     :root {
-      --ink: #15231e;
-      --muted: #66756e;
-      --green: #176b4b;
-      --green-dark: #10543a;
-      --mint: #e8f3ed;
-      --line: #e2e9e4;
-      --paper: #f6f8f6;
-      --white: #fff;
-      --orange: #e6a23c;
-      --shadow: 0 12px 32px rgba(19, 45, 33, .10);
+      --ink:#15231e; --muted:#66756e; --green:#176b4b; --green-dark:#10543a; --mint:#e8f3ed;
+      --line:#e2e9e4; --paper:#f6f8f6; --white:#fff; --orange:#e6a23c;
+      --shadow:0 12px 32px rgba(19,45,33,.10);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    * { box-sizing: border-box; }
-    body { margin: 0; color: var(--ink); background: var(--paper); }
-    button, input { font: inherit; }
-    button { cursor: pointer; }
-    .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
-    .topbar {
-      min-height: 72px; padding: 14px 22px; display: flex; align-items: center;
-      justify-content: space-between; gap: 18px; background: #10251f; color: white;
-    }
-    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
-    .brand-mark {
-      width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center;
-      color: #10251f; background: #b9e2c9; font-size: 21px; font-weight: 900;
-    }
-    .brand-name { font-size: 19px; line-height: 1.1; font-weight: 800; letter-spacing: -.4px; }
-    .brand-sub { color: #b8c9c0; font-size: 11px; margin-top: 4px; }
-    .top-actions { display: flex; align-items: center; gap: 9px; }
-    .top-pill { color: #d9e8df; border: 1px solid #3d594d; border-radius: 999px; padding: 7px 11px; font-size: 12px; }
-    .main { flex: 1; width: 100%; max-width: 1600px; margin: 0 auto; padding: 18px; }
-    .workspace {
-      display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 18px;
-      align-items: stretch; min-height: calc(100vh - 108px);
-    }
-    .map-card, .panel { background: var(--white); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
-    .map-card { display: flex; flex-direction: column; min-height: 620px; }
-    .map-toolbar {
-      padding: 13px 15px; display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
-    }
-    .map-heading { font-weight: 750; font-size: 14px; }
-    .map-hint { color: var(--muted); font-size: 12px; margin-top: 3px; }
-    .toolbar-actions { display: flex; gap: 7px; flex-wrap: wrap; }
-    .btn {
-      border: 1px solid #d9e3dc; background: white; color: var(--ink); border-radius: 10px;
-      padding: 9px 12px; font-size: 12px; font-weight: 700; transition: .15s ease;
-    }
-    .btn:hover { border-color: #9db9a8; background: #f6faf7; }
-    .btn.primary { background: var(--green); color: white; border-color: var(--green); }
-    .btn.primary:hover { background: var(--green-dark); }
-    .btn:disabled { opacity: .45; cursor: not-allowed; }
-    .btn.danger { color: #a43c34; border-color: #f0d7d4; }
-    .search-row { padding: 11px 14px; display: flex; gap: 8px; border-bottom: 1px solid var(--line); }
-    .search-row input {
-      flex: 1; min-width: 0; border: 1px solid #dce5df; border-radius: 10px; padding: 10px 12px;
-      outline: none; color: var(--ink); background: #fbfdfb;
-    }
-    .search-row input:focus { border-color: #6eaa86; box-shadow: 0 0 0 3px #e8f3ed; }
-    #map { flex: 1; min-height: 500px; background: #e5e9e4; }
-    .map-foot {
-      display: flex; justify-content: space-between; gap: 10px; padding: 9px 14px;
-      color: var(--muted); font-size: 11px; border-top: 1px solid var(--line);
-    }
-    .panel { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
-    .panel-title { font-size: 19px; font-weight: 800; letter-spacing: -.4px; }
-    .panel-subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.5; }
-    .status {
-      display: flex; align-items: flex-start; gap: 9px; background: #f1f7f3; border: 1px solid #e0eee5;
-      border-radius: 12px; padding: 11px 12px; color: #315d45; font-size: 12px; line-height: 1.45;
-    }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #45a66e; margin-top: 4px; flex: 0 0 auto; }
-    .status.warning { background: #fff8eb; border-color: #f5e5c7; color: #805c1e; }
-    .status.warning .status-dot { background: var(--orange); }
-    .section-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #65746c; }
-    .point-count { font-size: 11px; font-weight: 700; color: var(--green); background: var(--mint); padding: 4px 8px; border-radius: 999px; text-transform: none; letter-spacing: 0; }
-    .point-list { display: flex; flex-direction: column; gap: 6px; max-height: 176px; overflow: auto; padding-right: 2px; }
-    .point-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid #edf1ee; border-radius: 9px; font-size: 11px; }
-    .point-number { width: 21px; height: 21px; border-radius: 50%; background: var(--green); color: white; display: grid; place-items: center; font-weight: 800; flex: 0 0 auto; }
-    .point-coords { flex: 1; min-width: 0; color: #5c6b63; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-    .remove-point { border: 0; background: transparent; color: #a64b43; font-size: 17px; padding: 0 4px; }
-    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-    .metric { padding: 11px; border: 1px solid var(--line); border-radius: 12px; background: #fcfdfc; min-width: 0; }
-    .metric.primary-metric { grid-column: 1 / -1; background: #eff7f1; border-color: #d9eadf; }
-    .metric-label { color: var(--muted); font-size: 11px; }
-    .metric-value { margin-top: 5px; font-size: 17px; font-weight: 800; letter-spacing: -.3px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-    .primary-metric .metric-value { color: var(--green-dark); font-size: 25px; }
-    .metric-unit { color: var(--muted); font-size: 10px; margin-left: 3px; font-weight: 600; }
-    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .actions .wide { grid-column: 1 / -1; }
-    .disclaimer { font-size: 10px; line-height: 1.55; color: #77847d; border-top: 1px solid var(--line); padding-top: 12px; }
-    .empty { color: #89958e; font-size: 11px; text-align: center; padding: 17px 8px; border: 1px dashed #dce5df; border-radius: 10px; }
-    .leaflet-container { font-family: inherit; }
-    .leaflet-control-attribution { font-size: 9px !important; }
-    .vertex-icon { background: transparent; border: 0; }
-    .vertex-pin {
-      width: 26px; height: 26px; border: 2px solid white; border-radius: 50%; background: #176b4b;
-      color: white; box-shadow: 0 2px 7px #0005; display: grid; place-items: center; font-size: 11px; font-weight: 800;
-    }
-    .toast {
-      position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
-      padding: 11px 15px; color: white; background: #172b22; border-radius: 10px; box-shadow: var(--shadow);
-      font-size: 12px; z-index: 2000; transition: .2s ease; max-width: calc(100vw - 30px); text-align: center;
-    }
-    .toast.show { transform: translate(-50%, 0); opacity: 1; }
-    .loading { opacity: .65; pointer-events: none; }
-    @media (max-width: 980px) {
-      .workspace { grid-template-columns: 1fr; }
-      .map-card { min-height: 540px; }
-      #map { min-height: 440px; }
-      .panel { order: 2; }
-    }
-    @media (max-width: 600px) {
-      .topbar { padding: 12px 14px; min-height: 64px; }
-      .top-pill { display: none; }
-      .main { padding: 9px; }
-      .workspace { gap: 10px; }
-      .map-card { min-height: 480px; border-radius: 14px; }
-      #map { min-height: 370px; }
-      .map-toolbar { padding: 11px; align-items: flex-start; }
-      .search-row { padding: 9px; }
-      .panel { padding: 15px; border-radius: 14px; }
-      .map-foot { font-size: 9px; }
-      .btn { padding: 9px 10px; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--paper); }
+    button, input { font:inherit; }
+    button { cursor:pointer; }
+    .app-shell { min-height:100vh; display:flex; flex-direction:column; }
+    .topbar { min-height:72px; padding:14px 22px; display:flex; align-items:center; justify-content:space-between; gap:18px; background:#10251f; color:#fff; }
+    .brand { display:flex; align-items:center; gap:11px; min-width:0; }
+    .brand-mark { width:40px; height:40px; border-radius:13px; display:grid; place-items:center; color:#10251f; background:#b9e2c9; font-size:21px; font-weight:900; }
+    .brand-name { font-size:19px; line-height:1.1; font-weight:800; letter-spacing:-.4px; }
+    .brand-sub { color:#b8c9c0; font-size:11px; margin-top:4px; }
+    .top-pill { color:#d9e8df; border:1px solid #3d594d; border-radius:999px; padding:7px 11px; font-size:12px; }
+    .main { flex:1; width:100%; max-width:1600px; margin:0 auto; padding:18px; }
+    .workspace { display:grid; grid-template-columns:minmax(0,1fr) 370px; gap:18px; align-items:stretch; min-height:calc(100vh - 108px); }
+    .map-card, .panel { background:var(--white); border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); overflow:hidden; }
+    .map-card { display:flex; flex-direction:column; min-height:620px; }
+    .map-toolbar { padding:13px 15px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+    .map-heading { font-weight:750; font-size:14px; }
+    .map-hint { color:var(--muted); font-size:12px; margin-top:3px; }
+    .toolbar-actions { display:flex; gap:7px; flex-wrap:wrap; }
+    .btn { border:1px solid #d9e3dc; background:#fff; color:var(--ink); border-radius:10px; padding:9px 12px; font-size:12px; font-weight:700; transition:.15s ease; }
+    .btn:hover { border-color:#9db9a8; background:#f6faf7; }
+    .btn.primary { background:var(--green); color:#fff; border-color:var(--green); }
+    .btn.primary:hover { background:var(--green-dark); }
+    .btn:disabled { opacity:.45; cursor:not-allowed; }
+    .btn.danger { color:#a43c34; border-color:#f0d7d4; }
+    .search-row { padding:11px 14px; display:flex; gap:8px; border-bottom:1px solid var(--line); }
+    .search-row input { flex:1; min-width:0; border:1px solid #dce5df; border-radius:10px; padding:10px 12px; outline:none; color:var(--ink); background:#fbfdfb; }
+    .search-row input:focus { border-color:#6eaa86; box-shadow:0 0 0 3px #e8f3ed; }
+    #map { flex:1; min-height:500px; background:#e5e9e4; }
+    .map-foot { display:flex; justify-content:space-between; gap:10px; padding:9px 14px; color:var(--muted); font-size:11px; border-top:1px solid var(--line); }
+    .panel { padding:18px; display:flex; flex-direction:column; gap:16px; }
+    .panel-title { font-size:19px; font-weight:800; letter-spacing:-.4px; }
+    .panel-subtitle { color:var(--muted); font-size:12px; margin-top:4px; line-height:1.5; }
+    .status { display:flex; align-items:flex-start; gap:9px; background:#f1f7f3; border:1px solid #e0eee5; border-radius:12px; padding:11px 12px; color:#315d45; font-size:12px; line-height:1.45; }
+    .status-dot { width:8px; height:8px; border-radius:50%; background:#45a66e; margin-top:4px; flex:0 0 auto; }
+    .status.warning { background:#fff8eb; border-color:#f5e5c7; color:#805c1e; }
+    .status.warning .status-dot { background:var(--orange); }
+    .section-label { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:#65746c; }
+    .point-count { font-size:11px; font-weight:700; color:var(--green); background:var(--mint); padding:4px 8px; border-radius:999px; text-transform:none; letter-spacing:0; }
+    .point-list { display:flex; flex-direction:column; gap:6px; max-height:176px; overflow:auto; padding-right:2px; }
+    .point-row { display:flex; align-items:center; gap:8px; padding:7px 8px; border:1px solid #edf1ee; border-radius:9px; font-size:11px; }
+    .point-number { width:21px; height:21px; border-radius:50%; background:var(--green); color:#fff; display:grid; place-items:center; font-weight:800; flex:0 0 auto; }
+    .point-coords { flex:1; min-width:0; color:#5c6b63; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    .remove-point { border:0; background:transparent; color:#a64b43; font-size:17px; padding:0 4px; }
+    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+    .metric { padding:11px; border:1px solid var(--line); border-radius:12px; background:#fcfdfc; min-width:0; }
+    .metric.primary-metric { grid-column:1/-1; background:#eff7f1; border-color:#d9eadf; }
+    .metric-label { color:var(--muted); font-size:11px; }
+    .metric-value { margin-top:5px; font-size:17px; font-weight:800; letter-spacing:-.3px; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+    .primary-metric .metric-value { color:var(--green-dark); font-size:25px; }
+    .metric-unit { color:var(--muted); font-size:10px; margin-left:3px; font-weight:600; }
+    .actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .actions .wide { grid-column:1/-1; }
+    .disclaimer { font-size:10px; line-height:1.55; color:#77847d; border-top:1px solid var(--line); padding-top:12px; }
+    .empty { color:#89958e; font-size:11px; text-align:center; padding:17px 8px; border:1px dashed #dce5df; border-radius:10px; }
+    .leaflet-container { font-family:inherit; }
+    .leaflet-control-attribution { font-size:9px !important; }
+    .vertex-icon, .edge-icon { background:transparent; border:0; }
+    .vertex-pin { width:26px; height:26px; border:2px solid #fff; border-radius:50%; background:#176b4b; color:#fff; box-shadow:0 2px 7px #0005; display:grid; place-items:center; font-size:11px; font-weight:800; }
+    .edge-label { transform:translate(-50%,-50%); width:max-content; padding:2px 6px; border-radius:6px; background:#10251fcc; color:#fff; font-size:10px; font-weight:700; white-space:nowrap; pointer-events:none; }
+    .toast { position:fixed; left:50%; bottom:22px; transform:translate(-50%,20px); opacity:0; pointer-events:none; padding:11px 15px; color:#fff; background:#172b22; border-radius:10px; box-shadow:var(--shadow); font-size:12px; z-index:2000; transition:.2s ease; max-width:calc(100vw - 30px); text-align:center; }
+    .toast.show { transform:translate(-50%,0); opacity:1; }
+    @media (max-width:980px) { .workspace{grid-template-columns:1fr;} .map-card{min-height:540px;} #map{min-height:440px;} }
+    @media (max-width:600px) {
+      .topbar{padding:12px 14px; min-height:64px;} .top-pill{display:none;} .main{padding:9px;} .workspace{gap:10px;}
+      .map-card{min-height:480px; border-radius:14px;} #map{min-height:370px;} .map-toolbar{padding:11px; align-items:flex-start;}
+      .search-row{padding:9px;} .panel{padding:15px; border-radius:14px;} .map-foot{font-size:9px;} .btn{padding:9px 10px;}
     }
   </style>
 </head>
@@ -151,9 +97,7 @@
         <div class="brand-sub">Land area & perimeter calculator</div>
       </div>
     </div>
-    <div class="top-actions">
-      <span class="top-pill">Satellite map · No account required</span>
-    </div>
+    <span class="top-pill">Satellite map · No account required</span>
   </header>
 
   <main class="main">
@@ -166,7 +110,6 @@
           </div>
           <div class="toolbar-actions">
             <button class="btn" id="locateBtn" type="button">◎ My location</button>
-            <button class="btn" id="layerBtn" type="button">Street map</button>
           </div>
         </div>
         <div class="search-row">
@@ -192,14 +135,9 @@
         </div>
 
         <section>
-          <div class="section-label">
-            <span>Boundary points</span>
-            <span class="point-count" id="pointCount">0 points</span>
-          </div>
+          <div class="section-label"><span>Boundary points</span><span class="point-count" id="pointCount">0 points</span></div>
           <div style="height:9px"></div>
-          <div class="point-list" id="pointList">
-            <div class="empty">Your selected corners will appear here.</div>
-          </div>
+          <div class="point-list" id="pointList"><div class="empty">Your selected corners will appear here.</div></div>
         </section>
 
         <section>
@@ -212,6 +150,7 @@
             </div>
             <div class="metric"><div class="metric-label">Square feet</div><div class="metric-value" id="areaFt2">—</div></div>
             <div class="metric"><div class="metric-label">Cents</div><div class="metric-value" id="areaCents">—</div></div>
+            <div class="metric"><div class="metric-label">Ground (2,400 sq ft)</div><div class="metric-value" id="areaGround">—</div></div>
             <div class="metric"><div class="metric-label">Acres</div><div class="metric-value" id="areaAcres">—</div></div>
             <div class="metric"><div class="metric-label">Ares</div><div class="metric-value" id="areaAres">—</div></div>
             <div class="metric"><div class="metric-label">Hectares</div><div class="metric-value" id="areaHa">—</div></div>
@@ -230,7 +169,8 @@
         <div class="actions">
           <button class="btn" id="undoBtn" type="button" disabled>↶ Undo point</button>
           <button class="btn danger" id="clearBtn" type="button" disabled>Clear all</button>
-          <button class="btn primary wide" id="finishBtn" type="button" disabled>Calculate area</button>
+          <button class="btn" id="exportBtn" type="button" disabled>Export GeoJSON</button>
+          <button class="btn primary" id="finishBtn" type="button" disabled>Calculate area</button>
         </div>
 
         <div class="disclaimer">
@@ -250,34 +190,41 @@
   "use strict";
 
   const $ = (id) => document.getElementById(id);
+  const STORE_KEY = "landmeasure:points";
+  // Highest zoom where Esri satellite has real imagery in your area.
+  // Beyond this, Esri returns a "Map data not yet available" tile. Lower it if you still see grey tiles.
+  const SAT_NATIVE_ZOOM = 17;
+  const SEARCH_MAX_ZOOM = 17;
+
   const points = [];
   let markers = [];
-  let boundaryLine = null;
   let polygonLayer = null;
-  let currentLayer = "satellite";
+  let boundaryLine = null;
+  const edgeLayer = L.layerGroup();
+  let locMarker = null, locCircle = null;
   let toastTimer;
 
-  const map = L.map("map", { zoomControl: true }).setView([20.5937, 78.9629], 5);
+  const map = L.map("map", { zoomControl: true, maxZoom: 21 }).setView([20.5937, 78.9629], 5);
 
   const satellite = L.tileLayer(
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  {
-    maxNativeZoom: 19,
-    maxZoom: 22,
-    attribution: "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community"
-  }
-);
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    { maxNativeZoom: SAT_NATIVE_ZOOM, maxZoom: 21,
+      attribution: "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community" }
+  );
+  const labels = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}",
+    { maxNativeZoom: SAT_NATIVE_ZOOM, maxZoom: 21, attribution: "Labels © Esri" }
+  );
+  const street = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { maxNativeZoom: 19, maxZoom: 21,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }
+  );
 
-const street = L.tileLayer(
-  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {
-    maxNativeZoom: 19,
-    maxZoom: 22,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }
-);
-
-satellite.addTo(map);
+  satellite.addTo(map);
+  labels.addTo(map);
+  edgeLayer.addTo(map);
+  L.control.layers({ "Satellite": satellite, "Street map": street }, { "Place labels": labels, "Side lengths": edgeLayer }, { collapsed: true }).addTo(map);
 
   function showToast(message) {
     const el = $("toast");
@@ -297,45 +244,39 @@ satellite.addTo(map);
     return new Intl.NumberFormat("en-IN", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value);
   }
 
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(points)); } catch (e) { /* storage unavailable */ }
+  }
+
   function makeMarkerIcon(number) {
-    return L.divIcon({
-      className: "vertex-icon",
-      html: `<div class="vertex-pin">${number}</div>`,
-      iconSize: [26, 26],
-      iconAnchor: [13, 13]
-    });
+    return L.divIcon({ className: "vertex-icon", html: `<div class="vertex-pin">${number}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
   }
 
   function redrawMarkers() {
-    markers.forEach(marker => map.removeLayer(marker));
+    markers.forEach(m => map.removeLayer(m));
     markers = points.map((point, index) => {
-      const marker = L.marker([point.lat, point.lng], {
-        draggable: true,
-        icon: makeMarkerIcon(index + 1),
-        title: `Boundary point ${index + 1}`
-      }).addTo(map);
+      const marker = L.marker([point.lat, point.lng], { draggable: true, icon: makeMarkerIcon(index + 1), title: `Boundary point ${index + 1}` }).addTo(map);
       marker.on("drag", (event) => {
         const ll = event.target.getLatLng();
         points[index] = { lat: ll.lat, lng: ll.lng };
         updateGeometry();
       });
-      marker.on("dragend", () => {
-        updatePointList();
-        updateGeometry();
-      });
+      marker.on("dragend", () => { updatePointList(); updateGeometry(); save(); });
       return marker;
     });
   }
 
-  function addPoint(latlng) {
-    if (points.length >= 500) {
-      showToast("The Version 1 limit is 500 boundary points.");
-      return;
-    }
-    points.push({ lat: latlng.lat, lng: latlng.lng });
+  function refresh() {
     redrawMarkers();
     updatePointList();
     updateGeometry();
+    save();
+  }
+
+  function addPoint(latlng) {
+    if (points.length >= 500) { showToast("The limit is 500 boundary points."); return; }
+    points.push({ lat: latlng.lat, lng: latlng.lng });
+    refresh();
     setStatus(points.length < 3
       ? `Point ${points.length} added. Add at least ${3 - points.length} more point(s) to form a land boundary.`
       : "Boundary preview updated. Add more corners or calculate the area.");
@@ -343,86 +284,86 @@ satellite.addTo(map);
 
   function removePoint(index) {
     points.splice(index, 1);
-    redrawMarkers();
-    updatePointList();
-    updateGeometry();
+    refresh();
     setStatus(points.length >= 3 ? "Point removed. Boundary recalculated." : "Add at least three points to calculate an area.", points.length > 0 && points.length < 3);
   }
 
   function updatePointList() {
     $("pointCount").textContent = `${points.length} ${points.length === 1 ? "point" : "points"}`;
     const list = $("pointList");
-    if (!points.length) {
-      list.innerHTML = '<div class="empty">Your selected corners will appear here.</div>';
-    } else {
-      list.innerHTML = points.map((p, i) => `
-        <div class="point-row">
-          <span class="point-number">${i + 1}</span>
-          <span class="point-coords">${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</span>
-          <button class="remove-point" type="button" aria-label="Remove point ${i + 1}" title="Remove point" data-remove="${i}">×</button>
-        </div>`).join("");
-    }
-    list.querySelectorAll("[data-remove]").forEach(button => {
-      button.addEventListener("click", () => removePoint(Number(button.dataset.remove)));
-    });
-    $("undoBtn").disabled = points.length === 0;
-    $("clearBtn").disabled = points.length === 0;
+    list.innerHTML = points.length ? points.map((p, i) => `
+      <div class="point-row">
+        <span class="point-number">${i + 1}</span>
+        <span class="point-coords">${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</span>
+        <button class="remove-point" type="button" aria-label="Remove point ${i + 1}" title="Remove point" data-remove="${i}">×</button>
+      </div>`).join("") : '<div class="empty">Your selected corners will appear here.</div>';
+    list.querySelectorAll("[data-remove]").forEach(b => b.addEventListener("click", () => removePoint(Number(b.dataset.remove))));
+    $("undoBtn").disabled = !points.length;
+    $("clearBtn").disabled = !points.length;
     $("finishBtn").disabled = points.length < 3;
-  }
-
-  function clearGeometryLayers() {
-    if (boundaryLine) map.removeLayer(boundaryLine);
-    if (polygonLayer) map.removeLayer(polygonLayer);
-    boundaryLine = null;
-    polygonLayer = null;
+    $("exportBtn").disabled = points.length < 3;
   }
 
   function resetMetrics() {
-    ["areaM2", "areaFt2", "areaCents", "areaAcres", "areaAres", "areaHa", "perimeterM", "perimeterFt"]
+    ["areaM2", "areaFt2", "areaCents", "areaGround", "areaAcres", "areaAres", "areaHa", "perimeterM", "perimeterFt"]
       .forEach(id => $(id).textContent = "—");
   }
 
+  function drawEdgeLabels() {
+    edgeLayer.clearLayers();
+    if (points.length < 2) return;
+    const count = points.length >= 3 ? points.length : points.length - 1;
+    for (let i = 0; i < count; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      const meters = turf.distance([a.lng, a.lat], [b.lng, b.lat], { units: "kilometers" }) * 1000;
+      L.marker([(a.lat + b.lat) / 2, (a.lng + b.lng) / 2], {
+        interactive: false, keyboard: false,
+        icon: L.divIcon({ className: "edge-icon", html: `<div class="edge-label">${fmt(meters, 1)} m</div>`, iconSize: [0, 0] })
+      }).addTo(edgeLayer);
+    }
+  }
+
   function updateGeometry() {
-    clearGeometryLayers();
-    if (points.length === 0) {
-      resetMetrics();
+    if (boundaryLine) map.removeLayer(boundaryLine);
+    if (polygonLayer) map.removeLayer(polygonLayer);
+    boundaryLine = polygonLayer = null;
+    drawEdgeLabels();
+    resetMetrics();
+    if (!points.length) return;
+
+    const latlngs = points.map(p => [p.lat, p.lng]);
+    if (points.length < 3) {
+      boundaryLine = L.polyline(latlngs, { color: "#f2c14e", weight: 3, dashArray: "6 6" }).addTo(map);
+      if (points.length === 2) {
+        const d = turf.length(turf.lineString(points.map(p => [p.lng, p.lat])), { units: "kilometers" }) * 1000;
+        $("perimeterM").textContent = `${fmt(d)} m`;
+        $("perimeterFt").textContent = `${fmt(d * 3.280839895)} ft`;
+      }
       return;
     }
 
-    const latlngs = points.map(p => [p.lat, p.lng]);
-    if (points.length >= 3) {
-      polygonLayer = L.polygon(latlngs, {
-        color: "#f2c14e", weight: 3, opacity: 1,
-        fillColor: "#2c9b68", fillOpacity: 0.22
-      }).addTo(map);
-      try {
-        const ring = points.map(p => [p.lng, p.lat]);
-        ring.push([points[0].lng, points[0].lat]);
-        const polygon = turf.polygon([ring]);
-        const area = turf.area(polygon);
-        const line = turf.lineString(ring);
-        const perimeter = turf.length(line, { units: "kilometers" }) * 1000;
-
-        $("areaM2").innerHTML = `${fmt(area)} <span class="metric-unit">m²</span>`;
-        $("areaFt2").textContent = `${fmt(area * 10.7639104167, 2)} sq. ft.`;
-        $("areaCents").textContent = fmt(area / 40.468564224, 3);
-        $("areaAcres").textContent = fmt(area / 4046.8564224, 4);
-        $("areaAres").textContent = fmt(area / 100, 3);
-        $("areaHa").textContent = fmt(area / 10000, 4);
-        $("perimeterM").textContent = `${fmt(perimeter)} m`;
-        $("perimeterFt").textContent = `${fmt(perimeter * 3.280839895)} ft`;
-      } catch (error) {
-        resetMetrics();
-        setStatus("These points do not form a valid polygon. Check their order and make sure the boundary does not cross itself.", true);
+    polygonLayer = L.polygon(latlngs, { color: "#f2c14e", weight: 3, opacity: 1, fillColor: "#2c9b68", fillOpacity: 0.22 }).addTo(map);
+    try {
+      const ring = points.map(p => [p.lng, p.lat]);
+      ring.push([points[0].lng, points[0].lat]);
+      const polygon = turf.polygon([ring]);
+      if (turf.kinks(polygon).features.length) {
+        setStatus("The boundary crosses itself. Reorder or drag the points so the lines don't cross.", true);
+        return;
       }
-    } else {
-      boundaryLine = L.polyline(latlngs, { color: "#f2c14e", weight: 3, dashArray: "6 6" }).addTo(map);
-      resetMetrics();
-      if (points.length === 2) {
-        const distance = turf.length(turf.lineString(points.map(p => [p.lng, p.lat])), { units: "kilometers" }) * 1000;
-        $("perimeterM").textContent = `${fmt(distance)} m`;
-        $("perimeterFt").textContent = `${fmt(distance * 3.280839895)} ft`;
-      }
+      const area = turf.area(polygon);
+      const perimeter = turf.length(turf.lineString(ring), { units: "kilometers" }) * 1000;
+      $("areaM2").innerHTML = `${fmt(area)} <span class="metric-unit">m²</span>`;
+      $("areaFt2").textContent = `${fmt(area * 10.7639104167)} sq. ft.`;
+      $("areaCents").textContent = fmt(area / 40.468564224, 3);
+      $("areaGround").textContent = fmt(area / 222.9672, 3);
+      $("areaAcres").textContent = fmt(area / 4046.8564224, 4);
+      $("areaAres").textContent = fmt(area / 100, 3);
+      $("areaHa").textContent = fmt(area / 10000, 4);
+      $("perimeterM").textContent = `${fmt(perimeter)} m`;
+      $("perimeterFt").textContent = `${fmt(perimeter * 3.280839895)} ft`;
+    } catch (error) {
+      setStatus("These points do not form a valid polygon. Check their order.", true);
     }
   }
 
@@ -434,17 +375,13 @@ satellite.addTo(map);
   $("undoBtn").addEventListener("click", () => {
     if (!points.length) return;
     points.pop();
-    redrawMarkers();
-    updatePointList();
-    updateGeometry();
+    refresh();
     setStatus("Last point undone.");
   });
 
   $("clearBtn").addEventListener("click", () => {
     points.length = 0;
-    redrawMarkers();
-    updatePointList();
-    updateGeometry();
+    refresh();
     setStatus("All points cleared. Start marking a new boundary.");
   });
 
@@ -452,39 +389,38 @@ satellite.addTo(map);
     if (points.length < 3) return;
     updateGeometry();
     if (polygonLayer) {
-      map.fitBounds(polygonLayer.getBounds(), { padding: [35, 35], maxZoom: 19 });
+      map.fitBounds(polygonLayer.getBounds(), { padding: [35, 35], maxZoom: SAT_NATIVE_ZOOM + 1 });
       setStatus("Area and perimeter calculated. Drag any numbered marker to refine the boundary.");
     }
   });
 
-  $("layerBtn").addEventListener("click", () => {
-    if (currentLayer === "satellite") {
-      map.removeLayer(satellite);
-      street.addTo(map);
-      currentLayer = "street";
-      $("layerBtn").textContent = "Satellite view";
-    } else {
-      map.removeLayer(street);
-      satellite.addTo(map);
-      currentLayer = "satellite";
-      $("layerBtn").textContent = "Street map";
-    }
+  $("exportBtn").addEventListener("click", () => {
+    if (points.length < 3) return;
+    const ring = points.map(p => [p.lng, p.lat]);
+    ring.push(ring[0]);
+    const geojson = turf.polygon([ring], { name: "LandMeasure boundary", areaSqM: Math.round(turf.area(turf.polygon([ring])) * 100) / 100 });
+    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/geo+json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "land-boundary.geojson";
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast("GeoJSON downloaded.");
   });
 
   $("locateBtn").addEventListener("click", () => {
-    if (!navigator.geolocation) {
-      showToast("Location is not supported by this browser.");
-      return;
-    }
+    if (!navigator.geolocation) { showToast("Location is not supported by this browser."); return; }
     $("locateBtn").disabled = true;
     $("locateBtn").textContent = "Locating…";
     navigator.geolocation.getCurrentPosition(
       position => {
-        const { latitude, longitude } = position.coords;
-        map.setView([latitude, longitude], 18);
-        L.circleMarker([latitude, longitude], {
-          radius: 7, color: "#fff", weight: 3, fillColor: "#2676d2", fillOpacity: 1
-        }).addTo(map).bindPopup("Your approximate current location").openPopup();
+        const { latitude, longitude, accuracy } = position.coords;
+        if (locMarker) map.removeLayer(locMarker);
+        if (locCircle) map.removeLayer(locCircle);
+        locCircle = L.circle([latitude, longitude], { radius: accuracy, weight: 1, color: "#2676d2", fillOpacity: 0.1, interactive: false }).addTo(map);
+        locMarker = L.circleMarker([latitude, longitude], { radius: 7, color: "#fff", weight: 3, fillColor: "#2676d2", fillOpacity: 1 })
+          .addTo(map).bindPopup(`Your location (±${Math.round(accuracy)} m)`).openPopup();
+        map.setView([latitude, longitude], SAT_NATIVE_ZOOM);
         $("locateBtn").disabled = false;
         $("locateBtn").textContent = "◎ My location";
       },
@@ -504,10 +440,7 @@ satellite.addTo(map);
 
   async function searchPlace() {
     const query = $("searchInput").value.trim();
-    if (!query) {
-      showToast("Enter a place or address to search.");
-      return;
-    }
+    if (!query) { showToast("Enter a place or address to search."); return; }
     $("searchBtn").disabled = true;
     $("searchBtn").textContent = "Searching…";
     try {
@@ -518,9 +451,14 @@ satellite.addTo(map);
       if (!results.length) {
         showToast("No matching place found. Try a nearby town or landmark.");
       } else {
-        const result = results[0];
-        map.setView([Number(result.lat), Number(result.lon)], 17);
-        showToast(`Showing ${result.display_name.split(",").slice(0, 2).join(",")}`);
+        const r = results[0];
+        if (r.boundingbox) {
+          const [s, n, w, e] = r.boundingbox.map(Number);
+          map.fitBounds([[s, w], [n, e]], { maxZoom: SEARCH_MAX_ZOOM });
+        } else {
+          map.setView([Number(r.lat), Number(r.lon)], SEARCH_MAX_ZOOM);
+        }
+        showToast(`Showing ${r.display_name.split(",").slice(0, 2).join(",")}`);
       }
     } catch (error) {
       showToast("Place search failed. You can still zoom and pan the map manually.");
@@ -530,9 +468,20 @@ satellite.addTo(map);
     }
   }
   $("searchBtn").addEventListener("click", searchPlace);
-  $("searchInput").addEventListener("keydown", event => {
-    if (event.key === "Enter") searchPlace();
-  });
+  $("searchInput").addEventListener("keydown", event => { if (event.key === "Enter") searchPlace(); });
+
+  // Restore a saved boundary after refresh
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+    if (Array.isArray(saved) && saved.length) {
+      saved.forEach(p => { if (Number.isFinite(p.lat) && Number.isFinite(p.lng)) points.push({ lat: p.lat, lng: p.lng }); });
+      refresh();
+      if (points.length) {
+        map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lng])), { padding: [40, 40], maxZoom: SAT_NATIVE_ZOOM });
+        setStatus("Restored your last boundary. Drag markers to adjust, or clear to start over.");
+      }
+    }
+  } catch (e) { /* ignore corrupted storage */ }
 
   updatePointList();
 })();
