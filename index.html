@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10251f" />
+  <meta name="description" content="Draw a land boundary on a satellite map and calculate its area and perimeter." />
+  <title>LandMeasure — Land Area & Perimeter Calculator</title>
+
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="preconnect" href="https://server.arcgisonline.com" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <style>
+    :root {
+      --ink: #15231e;
+      --muted: #66756e;
+      --green: #176b4b;
+      --green-dark: #10543a;
+      --mint: #e8f3ed;
+      --line: #e2e9e4;
+      --paper: #f6f8f6;
+      --white: #fff;
+      --orange: #e6a23c;
+      --shadow: 0 12px 32px rgba(19, 45, 33, .10);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--paper); }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+    .topbar {
+      min-height: 72px; padding: 14px 22px; display: flex; align-items: center;
+      justify-content: space-between; gap: 18px; background: #10251f; color: white;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .brand-mark {
+      width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center;
+      color: #10251f; background: #b9e2c9; font-size: 21px; font-weight: 900;
+    }
+    .brand-name { font-size: 19px; line-height: 1.1; font-weight: 800; letter-spacing: -.4px; }
+    .brand-sub { color: #b8c9c0; font-size: 11px; margin-top: 4px; }
+    .top-actions { display: flex; align-items: center; gap: 9px; }
+    .top-pill { color: #d9e8df; border: 1px solid #3d594d; border-radius: 999px; padding: 7px 11px; font-size: 12px; }
+    .main { flex: 1; width: 100%; max-width: 1600px; margin: 0 auto; padding: 18px; }
+    .workspace {
+      display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 18px;
+      align-items: stretch; min-height: calc(100vh - 108px);
+    }
+    .map-card, .panel { background: var(--white); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+    .map-card { display: flex; flex-direction: column; min-height: 620px; }
+    .map-toolbar {
+      padding: 13px 15px; display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+    }
+    .map-heading { font-weight: 750; font-size: 14px; }
+    .map-hint { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .toolbar-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+    .btn {
+      border: 1px solid #d9e3dc; background: white; color: var(--ink); border-radius: 10px;
+      padding: 9px 12px; font-size: 12px; font-weight: 700; transition: .15s ease;
+    }
+    .btn:hover { border-color: #9db9a8; background: #f6faf7; }
+    .btn.primary { background: var(--green); color: white; border-color: var(--green); }
+    .btn.primary:hover { background: var(--green-dark); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn.danger { color: #a43c34; border-color: #f0d7d4; }
+    .search-row { padding: 11px 14px; display: flex; gap: 8px; border-bottom: 1px solid var(--line); }
+    .search-row input {
+      flex: 1; min-width: 0; border: 1px solid #dce5df; border-radius: 10px; padding: 10px 12px;
+      outline: none; color: var(--ink); background: #fbfdfb;
+    }
+    .search-row input:focus { border-color: #6eaa86; box-shadow: 0 0 0 3px #e8f3ed; }
+    #map { flex: 1; min-height: 500px; background: #e5e9e4; }
+    .map-foot {
+      display: flex; justify-content: space-between; gap: 10px; padding: 9px 14px;
+      color: var(--muted); font-size: 11px; border-top: 1px solid var(--line);
+    }
+    .panel { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+    .panel-title { font-size: 19px; font-weight: 800; letter-spacing: -.4px; }
+    .panel-subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.5; }
+    .status {
+      display: flex; align-items: flex-start; gap: 9px; background: #f1f7f3; border: 1px solid #e0eee5;
+      border-radius: 12px; padding: 11px 12px; color: #315d45; font-size: 12px; line-height: 1.45;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #45a66e; margin-top: 4px; flex: 0 0 auto; }
+    .status.warning { background: #fff8eb; border-color: #f5e5c7; color: #805c1e; }
+    .status.warning .status-dot { background: var(--orange); }
+    .section-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #65746c; }
+    .point-count { font-size: 11px; font-weight: 700; color: var(--green); background: var(--mint); padding: 4px 8px; border-radius: 999px; text-transform: none; letter-spacing: 0; }
+    .point-list { display: flex; flex-direction: column; gap: 6px; max-height: 176px; overflow: auto; padding-right: 2px; }
+    .point-row { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid #edf1ee; border-radius: 9px; font-size: 11px; }
+    .point-number { width: 21px; height: 21px; border-radius: 50%; background: var(--green); color: white; display: grid; place-items: center; font-weight: 800; flex: 0 0 auto; }
+    .point-coords { flex: 1; min-width: 0; color: #5c6b63; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .remove-point { border: 0; background: transparent; color: #a64b43; font-size: 17px; padding: 0 4px; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .metric { padding: 11px; border: 1px solid var(--line); border-radius: 12px; background: #fcfdfc; min-width: 0; }
+    .metric.primary-metric { grid-column: 1 / -1; background: #eff7f1; border-color: #d9eadf; }
+    .metric-label { color: var(--muted); font-size: 11px; }
+    .metric-value { margin-top: 5px; font-size: 17px; font-weight: 800; letter-spacing: -.3px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .primary-metric .metric-value { color: var(--green-dark); font-size: 25px; }
+    .metric-unit { color: var(--muted); font-size: 10px; margin-left: 3px; font-weight: 600; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .actions .wide { grid-column: 1 / -1; }
+    .disclaimer { font-size: 10px; line-height: 1.55; color: #77847d; border-top: 1px solid var(--line); padding-top: 12px; }
+    .empty { color: #89958e; font-size: 11px; text-align: center; padding: 17px 8px; border: 1px dashed #dce5df; border-radius: 10px; }
+    .leaflet-container { font-family: inherit; }
+    .leaflet-control-attribution { font-size: 9px !important; }
+    .vertex-icon { background: transparent; border: 0; }
+    .vertex-pin {
+      width: 26px; height: 26px; border: 2px solid white; border-radius: 50%; background: #176b4b;
+      color: white; box-shadow: 0 2px 7px #0005; display: grid; place-items: center; font-size: 11px; font-weight: 800;
+    }
+    .toast {
+      position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+      padding: 11px 15px; color: white; background: #172b22; border-radius: 10px; box-shadow: var(--shadow);
+      font-size: 12px; z-index: 2000; transition: .2s ease; max-width: calc(100vw - 30px); text-align: center;
+    }
+    .toast.show { transform: translate(-50%, 0); opacity: 1; }
+    .loading { opacity: .65; pointer-events: none; }
+    @media (max-width: 980px) {
+      .workspace { grid-template-columns: 1fr; }
+      .map-card { min-height: 540px; }
+      #map { min-height: 440px; }
+      .panel { order: 2; }
+    }
+    @media (max-width: 600px) {
+      .topbar { padding: 12px 14px; min-height: 64px; }
+      .top-pill { display: none; }
+      .main { padding: 9px; }
+      .workspace { gap: 10px; }
+      .map-card { min-height: 480px; border-radius: 14px; }
+      #map { min-height: 370px; }
+      .map-toolbar { padding: 11px; align-items: flex-start; }
+      .search-row { padding: 9px; }
+      .panel { padding: 15px; border-radius: 14px; }
+      .map-foot { font-size: 9px; }
+      .btn { padding: 9px 10px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">⌖</div>
+      <div>
+        <div class="brand-name">LandMeasure</div>
+        <div class="brand-sub">Land area & perimeter calculator</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span class="top-pill">Satellite map · No account required</span>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="workspace">
+      <section class="map-card" aria-label="Map and boundary drawing">
+        <div class="map-toolbar">
+          <div>
+            <div class="map-heading">Mark your land boundary</div>
+            <div class="map-hint">Tap or click the map to add each corner in order.</div>
+          </div>
+          <div class="toolbar-actions">
+            <button class="btn" id="locateBtn" type="button">◎ My location</button>
+            <button class="btn" id="layerBtn" type="button">Street map</button>
+          </div>
+        </div>
+        <div class="search-row">
+          <input id="searchInput" type="search" placeholder="Search a place, village or address…" autocomplete="off" aria-label="Search location" />
+          <button class="btn" id="searchBtn" type="button">Search</button>
+        </div>
+        <div id="map" role="application" aria-label="Interactive map. Click to add boundary points."></div>
+        <div class="map-foot">
+          <span>Satellite imagery © Esri · Map data © OpenStreetMap</span>
+          <span id="mapCoords">Move map to explore</span>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div>
+          <div class="panel-title">Your measurement</div>
+          <div class="panel-subtitle">Create a boundary by adding at least three points around the land.</div>
+        </div>
+
+        <div class="status" id="statusBox" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="statusText">Ready. Zoom into your land and tap its first corner on the map.</span>
+        </div>
+
+        <section>
+          <div class="section-label">
+            <span>Boundary points</span>
+            <span class="point-count" id="pointCount">0 points</span>
+          </div>
+          <div style="height:9px"></div>
+          <div class="point-list" id="pointList">
+            <div class="empty">Your selected corners will appear here.</div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-label"><span>Area</span><span>Live estimate</span></div>
+          <div style="height:9px"></div>
+          <div class="metrics">
+            <div class="metric primary-metric">
+              <div class="metric-label">Square metres</div>
+              <div class="metric-value" id="areaM2">— <span class="metric-unit">m²</span></div>
+            </div>
+            <div class="metric"><div class="metric-label">Square feet</div><div class="metric-value" id="areaFt2">—</div></div>
+            <div class="metric"><div class="metric-label">Cents</div><div class="metric-value" id="areaCents">—</div></div>
+            <div class="metric"><div class="metric-label">Acres</div><div class="metric-value" id="areaAcres">—</div></div>
+            <div class="metric"><div class="metric-label">Ares</div><div class="metric-value" id="areaAres">—</div></div>
+            <div class="metric"><div class="metric-label">Hectares</div><div class="metric-value" id="areaHa">—</div></div>
+          </div>
+        </section>
+
+        <section>
+          <div class="section-label"><span>Perimeter</span></div>
+          <div style="height:9px"></div>
+          <div class="metrics">
+            <div class="metric"><div class="metric-label">Metres</div><div class="metric-value" id="perimeterM">—</div></div>
+            <div class="metric"><div class="metric-label">Feet</div><div class="metric-value" id="perimeterFt">—</div></div>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button class="btn" id="undoBtn" type="button" disabled>↶ Undo point</button>
+          <button class="btn danger" id="clearBtn" type="button" disabled>Clear all</button>
+          <button class="btn primary wide" id="finishBtn" type="button" disabled>Calculate area</button>
+        </div>
+
+        <div class="disclaimer">
+          <strong>Measurement note:</strong> Results are estimates based on map coordinates and geodesic calculations. Satellite imagery, map alignment and GPS accuracy can introduce errors. This tool is not a cadastral or legal land survey and should not be used to establish official boundaries.
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const points = [];
+  let markers = [];
+  let boundaryLine = null;
+  let polygonLayer = null;
+  let currentLayer = "satellite";
+  let toastTimer;
+
+  const map = L.map("map", { zoomControl: true }).setView([20.5937, 78.9629], 5);
+
+  const satellite = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    { maxZoom: 19, attribution: "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community" }
+  );
+  const street = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }
+  );
+  satellite.addTo(map);
+
+  function showToast(message) {
+    const el = $("toast");
+    el.textContent = message;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
+  }
+
+  function setStatus(message, warning = false) {
+    $("statusText").textContent = message;
+    $("statusBox").classList.toggle("warning", warning);
+  }
+
+  function fmt(value, digits = 2) {
+    if (!Number.isFinite(value)) return "—";
+    return new Intl.NumberFormat("en-IN", { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value);
+  }
+
+  function makeMarkerIcon(number) {
+    return L.divIcon({
+      className: "vertex-icon",
+      html: `<div class="vertex-pin">${number}</div>`,
+      iconSize: [26, 26],
+      iconAnchor: [13, 13]
+    });
+  }
+
+  function redrawMarkers() {
+    markers.forEach(marker => map.removeLayer(marker));
+    markers = points.map((point, index) => {
+      const marker = L.marker([point.lat, point.lng], {
+        draggable: true,
+        icon: makeMarkerIcon(index + 1),
+        title: `Boundary point ${index + 1}`
+      }).addTo(map);
+      marker.on("drag", (event) => {
+        const ll = event.target.getLatLng();
+        points[index] = { lat: ll.lat, lng: ll.lng };
+        updateGeometry();
+      });
+      marker.on("dragend", () => {
+        updatePointList();
+        updateGeometry();
+      });
+      return marker;
+    });
+  }
+
+  function addPoint(latlng) {
+    if (points.length >= 500) {
+      showToast("The Version 1 limit is 500 boundary points.");
+      return;
+    }
+    points.push({ lat: latlng.lat, lng: latlng.lng });
+    redrawMarkers();
+    updatePointList();
+    updateGeometry();
+    setStatus(points.length < 3
+      ? `Point ${points.length} added. Add at least ${3 - points.length} more point(s) to form a land boundary.`
+      : "Boundary preview updated. Add more corners or calculate the area.");
+  }
+
+  function removePoint(index) {
+    points.splice(index, 1);
+    redrawMarkers();
+    updatePointList();
+    updateGeometry();
+    setStatus(points.length >= 3 ? "Point removed. Boundary recalculated." : "Add at least three points to calculate an area.", points.length > 0 && points.length < 3);
+  }
+
+  function updatePointList() {
+    $("pointCount").textContent = `${points.length} ${points.length === 1 ? "point" : "points"}`;
+    const list = $("pointList");
+    if (!points.length) {
+      list.innerHTML = '<div class="empty">Your selected corners will appear here.</div>';
+    } else {
+      list.innerHTML = points.map((p, i) => `
+        <div class="point-row">
+          <span class="point-number">${i + 1}</span>
+          <span class="point-coords">${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</span>
+          <button class="remove-point" type="button" aria-label="Remove point ${i + 1}" title="Remove point" data-remove="${i}">×</button>
+        </div>`).join("");
+    }
+    list.querySelectorAll("[data-remove]").forEach(button => {
+      button.addEventListener("click", () => removePoint(Number(button.dataset.remove)));
+    });
+    $("undoBtn").disabled = points.length === 0;
+    $("clearBtn").disabled = points.length === 0;
+    $("finishBtn").disabled = points.length < 3;
+  }
+
+  function clearGeometryLayers() {
+    if (boundaryLine) map.removeLayer(boundaryLine);
+    if (polygonLayer) map.removeLayer(polygonLayer);
+    boundaryLine = null;
+    polygonLayer = null;
+  }
+
+  function resetMetrics() {
+    ["areaM2", "areaFt2", "areaCents", "areaAcres", "areaAres", "areaHa", "perimeterM", "perimeterFt"]
+      .forEach(id => $(id).textContent = "—");
+  }
+
+  function updateGeometry() {
+    clearGeometryLayers();
+    if (points.length === 0) {
+      resetMetrics();
+      return;
+    }
+
+    const latlngs = points.map(p => [p.lat, p.lng]);
+    if (points.length >= 3) {
+      polygonLayer = L.polygon(latlngs, {
+        color: "#f2c14e", weight: 3, opacity: 1,
+        fillColor: "#2c9b68", fillOpacity: 0.22
+      }).addTo(map);
+      try {
+        const ring = points.map(p => [p.lng, p.lat]);
+        ring.push([points[0].lng, points[0].lat]);
+        const polygon = turf.polygon([ring]);
+        const area = turf.area(polygon);
+        const line = turf.lineString(ring);
+        const perimeter = turf.length(line, { units: "kilometers" }) * 1000;
+
+        $("areaM2").innerHTML = `${fmt(area)} <span class="metric-unit">m²</span>`;
+        $("areaFt2").textContent = `${fmt(area * 10.7639104167, 2)} sq. ft.`;
+        $("areaCents").textContent = fmt(area / 40.468564224, 3);
+        $("areaAcres").textContent = fmt(area / 4046.8564224, 4);
+        $("areaAres").textContent = fmt(area / 100, 3);
+        $("areaHa").textContent = fmt(area / 10000, 4);
+        $("perimeterM").textContent = `${fmt(perimeter)} m`;
+        $("perimeterFt").textContent = `${fmt(perimeter * 3.280839895)} ft`;
+      } catch (error) {
+        resetMetrics();
+        setStatus("These points do not form a valid polygon. Check their order and make sure the boundary does not cross itself.", true);
+      }
+    } else {
+      boundaryLine = L.polyline(latlngs, { color: "#f2c14e", weight: 3, dashArray: "6 6" }).addTo(map);
+      resetMetrics();
+      if (points.length === 2) {
+        const distance = turf.length(turf.lineString(points.map(p => [p.lng, p.lat])), { units: "kilometers" }) * 1000;
+        $("perimeterM").textContent = `${fmt(distance)} m`;
+        $("perimeterFt").textContent = `${fmt(distance * 3.280839895)} ft`;
+      }
+    }
+  }
+
+  map.on("click", (event) => addPoint(event.latlng));
+  map.on("mousemove", (event) => {
+    $("mapCoords").textContent = `${event.latlng.lat.toFixed(5)}, ${event.latlng.lng.toFixed(5)}`;
+  });
+
+  $("undoBtn").addEventListener("click", () => {
+    if (!points.length) return;
+    points.pop();
+    redrawMarkers();
+    updatePointList();
+    updateGeometry();
+    setStatus("Last point undone.");
+  });
+
+  $("clearBtn").addEventListener("click", () => {
+    points.length = 0;
+    redrawMarkers();
+    updatePointList();
+    updateGeometry();
+    setStatus("All points cleared. Start marking a new boundary.");
+  });
+
+  $("finishBtn").addEventListener("click", () => {
+    if (points.length < 3) return;
+    updateGeometry();
+    if (polygonLayer) {
+      map.fitBounds(polygonLayer.getBounds(), { padding: [35, 35], maxZoom: 19 });
+      setStatus("Area and perimeter calculated. Drag any numbered marker to refine the boundary.");
+    }
+  });
+
+  $("layerBtn").addEventListener("click", () => {
+    if (currentLayer === "satellite") {
+      map.removeLayer(satellite);
+      street.addTo(map);
+      currentLayer = "street";
+      $("layerBtn").textContent = "Satellite view";
+    } else {
+      map.removeLayer(street);
+      satellite.addTo(map);
+      currentLayer = "satellite";
+      $("layerBtn").textContent = "Street map";
+    }
+  });
+
+  $("locateBtn").addEventListener("click", () => {
+    if (!navigator.geolocation) {
+      showToast("Location is not supported by this browser.");
+      return;
+    }
+    $("locateBtn").disabled = true;
+    $("locateBtn").textContent = "Locating…";
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const { latitude, longitude } = position.coords;
+        map.setView([latitude, longitude], 18);
+        L.circleMarker([latitude, longitude], {
+          radius: 7, color: "#fff", weight: 3, fillColor: "#2676d2", fillOpacity: 1
+        }).addTo(map).bindPopup("Your approximate current location").openPopup();
+        $("locateBtn").disabled = false;
+        $("locateBtn").textContent = "◎ My location";
+      },
+      error => {
+        const messages = {
+          1: "Location permission was denied. Allow location access in your browser settings.",
+          2: "Your location is currently unavailable.",
+          3: "Location request timed out."
+        };
+        showToast(messages[error.code] || "Could not get your location.");
+        $("locateBtn").disabled = false;
+        $("locateBtn").textContent = "◎ My location";
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 }
+    );
+  });
+
+  async function searchPlace() {
+    const query = $("searchInput").value.trim();
+    if (!query) {
+      showToast("Enter a place or address to search.");
+      return;
+    }
+    $("searchBtn").disabled = true;
+    $("searchBtn").textContent = "Searching…";
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query)}`;
+      const response = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!response.ok) throw new Error("Search service unavailable");
+      const results = await response.json();
+      if (!results.length) {
+        showToast("No matching place found. Try a nearby town or landmark.");
+      } else {
+        const result = results[0];
+        map.setView([Number(result.lat), Number(result.lon)], 17);
+        showToast(`Showing ${result.display_name.split(",").slice(0, 2).join(",")}`);
+      }
+    } catch (error) {
+      showToast("Place search failed. You can still zoom and pan the map manually.");
+    } finally {
+      $("searchBtn").disabled = false;
+      $("searchBtn").textContent = "Search";
+    }
+  }
+  $("searchBtn").addEventListener("click", searchPlace);
+  $("searchInput").addEventListener("keydown", event => {
+    if (event.key === "Enter") searchPlace();
+  });
+
+  updatePointList();
+})();
+</script>
+</body>
+</html>
